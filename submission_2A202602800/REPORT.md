@@ -10,7 +10,7 @@ Mọi thí nghiệm dùng cùng split và 20 epoch. Train loss được đo ở 
 
 ## 2. Kiểm tra ban đầu và độ nhiễu
 
-Model có đúng 47.879 tham số, logits `(B,7)`, mọi tham số nhận gradient khác 0. Loss bước 0 của `base-s1` trên val là **2,2691**, cao hơn `ln(7)=1,9459`: He cho logits ban đầu chưa bằng nhau nên `ln(7)` là mốc tham khảo, không phải giá trị bắt buộc. Phép thử 20 mẫu train đạt accuracy **100%**, loss **0,000986** sau 58 bước Adam ([đường cong](figures/healthcheck_20_samples.png)).
+Model có đúng 47.879 tham số, logits `(B,7)`, mọi tham số nhận gradient khác 0. Loss bước 0 của `base-s1` trên val là **2,2691**, cao hơn `ln(7)=1,9459`. Mốc `ln(7)` ứng với dự đoán đều bảy lớp; logits ngẫu nhiên sau khởi tạo He chưa bằng nhau nên loss có thể cao hơn. Đây là sai khác cần ghi nhận, không tự xem là lỗi pipeline vì phép thử 20 mẫu train đạt accuracy **100%**, loss **0,000986** sau 58 bước Adam ([đường cong](figures/healthcheck_20_samples.png)).
 
 Ba baseline seed `base-s1`, `base-s2`, `base-s3` cho val macro-F1 lần lượt **0,8588**, **0,8447**, **0,8567**; trung bình **0,8534 ± 0,0076** (độ lệch chuẩn mẫu), ngưỡng tham chiếu `2σ = 0,0153`. Val accuracy trung bình **0,9092 ± 0,0003**. Đường [baseline](figures/compare_baseline_seeds.png) cho thấy kết quả F1 dao động giữa seed dù accuracy khá ổn định. Vì chỉ có ba seed, đây là ngưỡng nhiễu thực dụng, không phải kiểm định ý nghĩa thống kê.
 
@@ -18,7 +18,7 @@ Ba baseline seed `base-s1`, `base-s2`, `base-s3` cho val macro-F1 lần lượt 
 
 ### Loss
 
-Dự đoán CE sẽ phù hợp hơn MSE vì CE tối ưu trực tiếp xác suất lớp và thường giữ tín hiệu gradient tốt hơn khi dự đoán sai. `loss-mse` đạt val macro-F1 **0,7360**, thấp hơn `base-s1` **0,8588** một khoảng lớn hơn `2σ`; dự đoán được ủng hộ ([ảnh](figures/compare_loss.png)). MSE ở đây là bình phương sai số giữa **logits** và one-hot, lấy trung bình trên mẫu và 7 logit. Val loss MSE **0,0294** và CE **0,2260** khác thang đo, nên không dùng hai số loss để xếp hạng.
+Dự đoán CE sẽ phù hợp hơn vì CE tối ưu trực tiếp phân loại nhiều lớp, còn MSE ở đây buộc **logits** khớp các giá trị one-hot tùy ý. `loss-mse` đạt val macro-F1 **0,7360**, thấp hơn `base-s1` **0,8588** một khoảng lớn hơn `2σ`; dự đoán được ủng hộ ([ảnh](figures/compare_loss.png)). MSE lấy trung bình trên mẫu và 7 logit; val loss MSE **0,0294** và CE **0,2260** khác thang đo, nên không dùng hai số loss để xếp hạng. Thí nghiệm này không đo gradient riêng cho từng loss, vì vậy chênh lệch F1 **không chứng minh** cơ chế bão hòa gradient. Với MSE trên logits, gradient theo logits vẫn tuyến tính theo sai số và không bão hòa theo kiểu MSE trên xác suất sau softmax.
 
 ### Optimizer và learning rate
 
@@ -32,7 +32,7 @@ Dự đoán dropout 0,3 có thể hại khi baseline chưa quá khớp mạnh. `
 
 ### Gradient clipping
 
-Grad norm trung bình của `base-s1` quanh **0,58**, nên ngưỡng **0,3** thấp hơn nhiều bước và thật sự cắt gradient. `clip-0p3` ở learning rate 0,1 đạt **0,8225**, thấp hơn baseline **0,8588**: cắt quá chặt đã hạn chế cập nhật. Ở learning rate 0,5, cặp `highlr-0p5` / `highlr-0p5-clip-0p3` đạt **0,8429 / 0,8461** ([ảnh](figures/compare_clipping.png)). Lượt không clip không NaN; chênh **0,0032** dưới nhiễu. Do đó dữ liệu này **chưa chứng minh** clipping cứu một trường hợp mất ổn định. Hai lượt lr cao chỉ được so trực tiếp với nhau vì cả hai đã đổi lr so với baseline.
+Grad norm trung bình theo epoch của `base-s1` quanh **0,58**, cao hơn ngưỡng **0,3**; do đó ngưỡng này sẽ tác động ở ít nhất một số bước, nhưng log hiện tại chưa cho biết **tỉ lệ bước bị clip**. `clip-0p3` ở learning rate 0,1 đạt **0,8225**, thấp hơn baseline **0,8588**; cắt quá chặt là một cách giải thích phù hợp, chưa phải nguyên nhân đã được chứng minh. Ở learning rate 0,5, cặp `highlr-0p5` / `highlr-0p5-clip-0p3` đạt **0,8429 / 0,8461** ([ảnh](figures/compare_clipping.png)). Lượt không clip không NaN; chênh **0,0032** dưới nhiễu. Do đó dữ liệu này **chưa chứng minh** clipping cứu một trường hợp mất ổn định. Hai lượt lr cao chỉ được so trực tiếp với nhau vì cả hai đã đổi lr so với baseline.
 
 ### Khởi tạo tham số
 
@@ -51,7 +51,7 @@ Trước khi mở eval, chọn `opt-adam-lr0p003` bằng **best val loss 0,2128*
 | `base-s1` | 0,8588 | 0,9086 | 0,8586 |
 | `opt-adam-lr0p003` | 0,8698 | 0,9136 | 0,8698 |
 
-Eval macro-F1 tăng **0,0112**, nằm trong mức nhiễu tham chiếu `2σ=0,0153` đo trên validation. Đây là kết quả của một seed trên eval; chưa thể khẳng định cải thiện vượt nhiễu seed. Val và eval macro-F1 gần nhau cho cả hai cấu hình. Không điều chỉnh cấu hình sau khi thấy điểm eval.
+Eval macro-F1 tăng **0,0112** trong lần chạy này. Mốc `2σ=0,0153` được đo từ **baseline trên validation**, không phải độ lệch chuẩn của chênh lệch **trên eval**; chỉ dùng nó làm cảnh báo rằng hiệu ứng quan sát được khá nhỏ. Mỗi cấu hình mới có một seed trên eval, nên chưa thể khẳng định cải thiện ổn định qua seed. Val và eval macro-F1 gần nhau cho cả hai cấu hình. Không điều chỉnh cấu hình sau khi thấy điểm eval.
 
 ### Phân tích lỗi theo lớp của cấu hình cuối
 
@@ -87,7 +87,7 @@ Lớp khó nhất theo F1 là **lớp 4 (Aspen), 0,7833**; 335/1.899 mẫu lớp
 3. **Clipping:** giới hạn độ dài bước cập nhật khi gradient tăng đột ngột. Ở đây clip 0,3 thực sự tác động nhưng không có lượt không clip bị mất ổn định, nên chưa có minh chứng nó giải quyết lỗi NaN; cặp lr cao chênh nhỏ hơn nhiễu.
 4. **Mixed precision:** chưa đo trên GPU, nên không kết luận về tốc độ hoặc bộ nhớ. Mạng nhỏ có thể bị chi phí khởi động kernel chi phối, nhưng đó là giả thuyết chưa được kiểm chứng ở máy này.
 5. **Khởi tạo:** zeros giữ các nơ-ron ẩn giống nhau và ReLU(0) làm gradient không lan qua tầng ẩn, dẫn đến dự đoán gần lớp đa số. He giữ phương sai phù hợp hơn với ReLU so với Xavier trong phép đo kích hoạt; để đánh giá chắc khác biệt chất lượng cần nhiều seed hơn.
-6. **Nếu loss không giảm sau 2.000 bước:** (i) kiểm tra nhãn `0..6`, shape/dtype, chuẩn hóa chỉ từ train và loss bước 0; lỗi ở đây chỉ ra dữ liệu/tiền xử lý; (ii) tắt dropout và thử quá khớp 20 mẫu, kiểm tra logits và gradient từng lớp; không làm được gợi ý lỗi model, loss hoặc luồng gradient; (iii) kiểm tra `zero_grad → forward → loss → backward → optimizer.step`, learning rate, grad norm và NaN theo bước; phép thử này phân biệt lỗi vòng lặp với lr quá nhỏ/quá lớn. Thứ tự này rẻ hơn chạy thêm 2.000 bước mù.
+6. **Nếu loss không giảm sau 2.000 bước:** (i) kiểm tra nhãn `0..6`, shape/dtype, chuẩn hóa chỉ từ train và loss bước 0; sai khác ở đây gợi ý cần kiểm tra cả dữ liệu **lẫn khởi tạo**; (ii) tắt dropout và thử quá khớp 20 mẫu, kiểm tra logits và gradient từng lớp; không làm được gợi ý lỗi model, loss hoặc luồng gradient; (iii) kiểm tra `zero_grad → forward → loss → backward → optimizer.step`, learning rate, grad norm và NaN theo bước; phép thử này phân biệt lỗi vòng lặp với lr quá nhỏ/quá lớn. Thứ tự này rẻ hơn chạy thêm 2.000 bước mù.
 
 Hạn chế chính: hầu hết biến thể chỉ một seed, optimizer chỉ có hai lr mỗi loại, thí nghiệm batch giữ cùng epoch nhưng không cùng bước cập nhật, chưa thử AMP trên GPU. Best epoch chọn bằng **val loss**, trong khi metric chấm là macro-F1; một quy tắc chọn khác có thể cho kết quả khác và phải xác định trước khi xem eval. Nếu có thêm thời gian, nên lặp seed cho các ứng viên mạnh nhất, thử clipping trong tình huống thật sự mất ổn định, thử weight decay dương và phân tích lỗi theo đặc trưng.
 
